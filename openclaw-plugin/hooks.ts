@@ -202,12 +202,12 @@ export function registerHooks(
       memoryCache = null;
       return null;
     }
-    if (memoryCache.queryHash !== prompt.slice(0, 100)) return null;
+    if (memoryCache.queryHash !== prompt) return null;
     return memoryCache.memories;
   }
 
   function setCache(memories: Memory[], prompt: string): void {
-    memoryCache = { memories, ts: Date.now(), queryHash: prompt.slice(0, 100) };
+    memoryCache = { memories, ts: Date.now(), queryHash: prompt };
   }
 
   function invalidateCache(): void {
@@ -286,7 +286,6 @@ export function registerHooks(
 
       await backend.store({
         content: `[session-summary] ${summary}`,
-        key: `session:reset:${Date.now()}`,
         source: AUTO_CAPTURE_SOURCE,
         tags: ["auto-capture", "session-summary", "pre-reset"],
       });

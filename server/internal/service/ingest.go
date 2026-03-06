@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -517,8 +518,11 @@ Reconcile the new facts with current memory. Return the full memory state after 
 				continue
 			}
 			if delErr := s.memories.SetState(ctx, realID, domain.StateDeleted); delErr != nil {
-				slog.Warn("failed to delete memory", "err", delErr, "id", event.ID)
-				warnings++
+				if !errors.Is(delErr, domain.ErrNotFound) {
+					// ErrNotFound = row already archived/moved by concurrent operation — safe to skip
+					slog.Warn("failed to delete memory", "err", delErr, "id", event.ID)
+					warnings++
+				}
 			}
 
 		case "NOOP":

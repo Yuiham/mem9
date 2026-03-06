@@ -63,7 +63,9 @@ type tenantSvcKey string
 // resolveServices returns the correct services for a request.
 func (s *Server) resolveServices(auth *domain.AuthInfo) resolvedSvc {
 	if auth.TenantID == "" {
-		// Non-tenant mode: cache by DB pointer to avoid per-request NewMemoryRepo.
+		// Defensive path: currently unreachable in production because auth middleware
+		// always sets TenantID for valid tokens. Kept for future unauthenticated routes
+		// (e.g., health-check handlers that bypass auth) and test harnesses.
 		key := tenantSvcKey(fmt.Sprintf("db-%p", auth.TenantDB))
 		if cached, ok := s.svcCache.Load(key); ok {
 			return cached.(resolvedSvc)
