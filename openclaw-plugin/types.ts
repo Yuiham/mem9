@@ -71,16 +71,13 @@ export interface IngestInput {
   messages: IngestMessage[];
   session_id: string;
   agent_id: string;
-  mode?: "smart" | "extract" | "digest" | "raw";
-  ingest_id?: string;
+  mode?: "smart" | "raw";
 }
 
 export interface IngestResult {
-  ingest_id: string;
-  status: "complete" | "partial" | "failed";
-  digest_stored: boolean;
-  digest_id?: string;
-  insights_added: number;
+  status: "complete" | "failed";
+  memories_changed: number;
   insight_ids?: string[];
+  warnings?: number;
   error?: string;
 }
