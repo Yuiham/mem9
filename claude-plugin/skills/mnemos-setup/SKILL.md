@@ -15,21 +15,18 @@ You need a running mnemo-server instance. See [server README](https://github.com
 
 ## Setup Steps
 
-### Step 1: Get your API credentials
-
-You need `MNEMO_API_URL` and `MNEMO_API_TOKEN` from your mnemo-server administrator.
-
-If you're setting up a new server:
+### Step 1: Provision a tenant
 
 ```bash
 # Deploy server (requires a TiDB/MySQL database)
 cd server && MNEMO_DSN="user:pass@tcp(host:4000)/mnemos?parseTime=true" go run ./cmd/mnemo-server
 
-# Create a tenant and get a token
-curl -s -X POST http://localhost:8080/api/tenants/register \
-  -H "Content-Type: application/json" \
-  -d '{"name":"my-tenant","agent_name":"claude-code","agent_type":"claude_code"}' | jq .
+# Provision a tenant (no auth required)
+curl -s -X POST http://localhost:8080/v1alpha1/mem9s | jq .
+# → { "id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", "claim_url": "..." }
 ```
+
+Save the returned `id` — this is your `MNEMO_TENANT_ID`.
 
 ### Step 2: Configure credentials
 
@@ -39,7 +36,7 @@ Add to `~/.claude/settings.json`:
 {
   "env": {
     "MNEMO_API_URL": "http://your-server:8080",
-    "MNEMO_API_TOKEN": "mnemo_your_token_here"
+    "MNEMO_TENANT_ID": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
   }
 }
 ```

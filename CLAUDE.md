@@ -2,7 +2,7 @@
 
 ## What is this repo?
 
-mnemos is cloud-persistent memory for AI agents. Plugins connect to mnemo-server (Go) for multi-agent, space-isolated memory with hybrid vector + keyword search.
+mnemos is cloud-persistent memory for AI agents. Plugins connect to mnemo-server (Go) for multi-agent, tenant-isolated memory with hybrid vector + keyword search.
 
 Three components:
 - `server/` — Go REST API (chi router, TiDB/MySQL, optional embedding)
@@ -33,10 +33,10 @@ server/internal/config/             — Env var config loading (DB + embedding)
 server/internal/domain/             — Core types (Memory with Metadata/Embedding/Score), errors
 server/internal/embed/              — Embedding provider (OpenAI-compatible HTTP client)
 server/internal/handler/            — HTTP handlers + chi router setup + JSON helpers
-server/internal/middleware/         — Auth (Bearer token → context) + rate limiter
+server/internal/middleware/         — Tenant resolution (tenantID → DB) + rate limiter
 server/internal/repository/         — Repository interfaces + TiDB SQL (vector + keyword search)
 server/internal/service/            — Business logic: upsert, LWW, hybrid search, embedding on write
-server/schema.sql                   — Database DDL (memories with VECTOR column + space_tokens)
+server/schema.sql                   — Database DDL (control plane + tenant data plane)
 
 openclaw-plugin/index.ts            — Tool registration via MemoryBackend interface
 openclaw-plugin/backend.ts          — MemoryBackend interface (store/search/get/update/remove)
@@ -76,41 +76,32 @@ claude-plugin/skills/memory-store/       — On-demand save skill
 - Upsert uses `INSERT ... ON DUPLICATE KEY UPDATE` (atomic, no race conditions)
 - Version increment is atomic in SQL: `SET version = version + 1`
 - Tags stored as JSON column, filtered with `JSON_CONTAINS`; empty tags stored as `[]` (not NULL)
-- `POST /api/spaces` has no auth — bootstrap endpoint
+- **No auth required**: Tenant ID in URL path is the only identification. No Bearer tokens, no API keys.
 
-## Server mode: token bootstrap
+## Tenant provisioning
 
-Server mode uses a two-token system. The `userToken` in plugin config must be created once
-manually via the unauthenticated `POST /api/users` bootstrap endpoint.
+Provision a new tenant via the unauthenticated bootstrap endpoint:
 
 ```bash
-# Step 1: create a user token (no auth required)
-curl -s -X POST http://<server>/api/users \
-  -H "Content-Type: application/json" \
-  -d '{"name":"alice"}' | jq .
-# → { "ok": true, "user_id": "...", "api_token": "mnemo_..." }
+curl -s -X POST http://<server>/v1alpha1/mem9s | jq .
+# → { "id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", "claim_url": "..." }
 ```
 
-Put the returned `api_token` into the plugin config as `userToken`:
+Save the returned `id` — this is the tenant ID used in all subsequent API calls.
 
-```json
-{
-  "plugins": {
-    "entries": {
-      "mnemo": {
-        "config": {
-          "apiUrl": "http://<server>",
-          "userToken": "mnemo_..."
-        }
-      }
-    }
-  }
-}
+All memory operations use tenant-scoped routes:
+```
+POST   /v1alpha1/mem9s/{tenantID}/memories          — Create
+GET    /v1alpha1/mem9s/{tenantID}/memories           — Search/list
+GET    /v1alpha1/mem9s/{tenantID}/memories/{id}      — Get by ID
+PUT    /v1alpha1/mem9s/{tenantID}/memories/{id}      — Update
+DELETE /v1alpha1/mem9s/{tenantID}/memories/{id}      — Delete
+POST   /v1alpha1/mem9s/{tenantID}/memories/ingest    — Smart pipeline
+POST   /v1alpha1/mem9s/{tenantID}/memories/bulk      — Bulk create
+GET    /v1alpha1/mem9s/{tenantID}/memories/bootstrap  — Recent memories
 ```
 
-On first tool call, the plugin automatically calls `POST /api/spaces/provision` (authenticated
-with `userToken`) to obtain a workspace-scoped `spaceToken`, which is then used for all memory
-operations. The `userToken` is never sent to memory endpoints directly.
+Agent identity is passed via the `X-Mnemo-Agent-Id` header.
 
 ## Installing the Claude Code plugin
 
@@ -122,7 +113,7 @@ If a user asks to install or set up the claude-plugin, read `claude-plugin/READM
 2. Then: `/plugin install mnemo-memory@mnemos`
 3. Accept the hook permissions when prompted
 4. Add server credentials to `~/.claude/settings.json` under `env`:
-   - Set `MNEMO_API_URL` and `MNEMO_API_TOKEN`
+   - Set `MNEMO_API_URL` and `MNEMO_TENANT_ID`
 5. Restart Claude Code
 
 **Manual install (alternative):**
@@ -138,7 +129,7 @@ If a user asks to install mnemo for OpenCode, read `opencode-plugin/README.md` f
 **npm plugin (recommended):**
 
 1. Add to `opencode.json`: `{"plugin": ["mnemo-opencode"]}`
-2. Set env vars: `MNEMO_API_URL` and `MNEMO_API_TOKEN`
+2. Set env vars: `MNEMO_API_URL` and `MNEMO_TENANT_ID`
 3. Restart OpenCode — plugin auto-installs from npm and logs `[mnemo] Server mode...`
 
 **From source (alternative):**
@@ -155,5 +146,5 @@ If a user asks to install mnemo for OpenClaw, read `openclaw-plugin/README.md` f
 2. Add to `openclaw.json`:
    - Set `plugins.slots.memory` to `"mnemo"`
    - Add `plugins.entries.mnemo` with `enabled: true` and config
-   - Set `apiUrl` and `userToken` in config
+   - Set `apiUrl` and `tenantID` in config
 3. Plugin is `kind: "memory"` — OpenClaw framework manages the lifecycle automatically

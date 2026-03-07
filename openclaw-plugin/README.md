@@ -1,6 +1,6 @@
 # OpenClaw Plugin for mnemos
 
-Memory plugin for [OpenClaw](https://github.com/openclaw) — replaces the built-in memory slot with cloud-persistent shared memory. Runs in server mode only, connecting to `mnemo-server` via `apiUrl` + `apiToken`.
+Memory plugin for [OpenClaw](https://github.com/openclaw) — replaces the built-in memory slot with cloud-persistent shared memory. Runs in server mode only, connecting to `mnemo-server` via `apiUrl` + `tenantID`.
 
 ## 🚀 Quick Start (Server Mode)
 
@@ -11,13 +11,13 @@ Memory plugin for [OpenClaw](https://github.com/openclaw) — replaces the built
 cd mnemos/server
 MNEMO_DSN="user:pass@tcp(host:4000)/mnemos?parseTime=true" go run ./cmd/mnemo-server
 
-# 2. Create a user token (bootstrap, no auth required)
-curl -s -X POST http://localhost:8080/api/users \
+# 2. Provision a tenant
+curl -s -X POST http://localhost:8080/v1alpha1/mem9s \
   -H "Content-Type: application/json" \
-  -d '{"name":"openclaw-user"}'
+  -d '{"name":"openclaw-tenant"}'
 
 # Response:
-# {"ok": true, "user_id": "...", "api_token": "mnemo_abc123"}
+# {"id": "uuid", "claim_url": "..."}
 ```
 
 Add mnemo to your project's `openclaw.json`:
@@ -31,7 +31,7 @@ Add mnemo to your project's `openclaw.json`:
         "enabled": true,
         "config": {
           "apiUrl": "http://localhost:8080",
-          "apiToken": "mnemo_abc123"
+          "tenantID": "uuid"
         }
       }
     }
@@ -40,6 +40,8 @@ Add mnemo to your project's `openclaw.json`:
 ```
 
 **That's it!** Restart OpenClaw and your agent now has persistent cloud memory.
+
+All memory calls use `/v1alpha1/mem9s/{tenantID}/memories/...` — the tenant ID is carried in the URL path, and no special headers are required.
 
 ---
 
@@ -106,8 +108,8 @@ Add mnemo to your project's `openclaw.json`:
 OpenClaw is often deployed across teams with multiple agents. Server mode gives you:
 
 - **Space isolation** — each team/project gets its own memory pool, no cross-contamination
-- **Per-agent tokens** — every OpenClaw instance gets a unique API token scoped to its space
-- **Centralized management** — one mnemo-server manages all memory, with rate limiting and auth
+- **Per-agent identity** — every OpenClaw instance can pass its own `X-Mnemo-Agent-Id` header
+- **Centralized management** — one mnemo-server manages all memory, with rate limiting and access controls
 - **LLM conflict merge (Phase 2)** — when two agents write to the same key, the server can merge intelligently
 
 **Step 1: Deploy mnemo-server**
@@ -117,20 +119,20 @@ cd mnemos/server
 MNEMO_DSN="user:pass@tcp(tidb-host:4000)/mnemos?parseTime=true" go run ./cmd/mnemo-server
 ```
 
-**Step 2: Create a user token**
+**Step 2: Provision a tenant**
 
 ```bash
-curl -s -X POST http://localhost:8080/api/users \
+curl -s -X POST http://localhost:8080/v1alpha1/mem9s \
   -H "Content-Type: application/json" \
-  -d '{"name":"openclaw-user"}'
+  -d '{"name":"openclaw-tenant"}'
 
 # Response:
-# {"ok": true, "user_id": "...", "api_token": "mnemo_abc123"}
+# {"id": "uuid", "claim_url": "..."}
 ```
 
 **Step 3: Configure each OpenClaw instance**
 
-Each agent uses its own `apiToken`. The server provisions a space token on first use and scopes all memory to that space.
+Each agent uses the same `tenantID` for the shared memory pool. The tenant ID is part of the URL path for all memory calls.
 
 ```json
 {
@@ -143,7 +145,7 @@ Each agent uses its own `apiToken`. The server provisions a space token on first
         "enabled": true,
         "config": {
           "apiUrl": "http://your-server:8080",
-          "apiToken": "mnemo_abc123"
+          "tenantID": "uuid"
         }
       }
     }
@@ -151,7 +153,7 @@ Each agent uses its own `apiToken`. The server provisions a space token on first
 }
 ```
 
-That's it. The server handles auth, scoping, and conflict resolution.
+That's it. The server handles scoping and conflict resolution. Conceptually, the only required values are `apiUrl` + `tenantID`.
 
 ### Verify
 
@@ -170,10 +172,11 @@ Defined in `openclaw.plugin.json`:
 | Field | Type | Description |
 |---|---|---|
 | `apiUrl` | string | mnemo-server URL |
-| `apiToken` | string | API token for authentication (preferred) |
-| `userToken` | string | Legacy alias for `apiToken` — works the same way, kept for backward compatibility |
+| `tenantID` | string | Tenant ID used in `/v1alpha1/mem9s/{tenantID}/memories` (preferred) |
+| `apiToken` | string | Legacy alias for `tenantID` — kept for backward compatibility |
+| `userToken` | string | Legacy alias for `tenantID` — kept for backward compatibility |
 
-> **Note**: `apiToken` and `userToken` are interchangeable. The plugin checks `apiToken` first, then falls back to `userToken`. For new setups, use `apiToken`.
+> **Note**: `tenantID` is the preferred config field. For legacy setups, the plugin checks `tenantID` first, then falls back to `apiToken`, then `userToken`.
 
 ## File Structure
 
@@ -193,6 +196,6 @@ openclaw-plugin/
 
 | Problem | Cause | Fix |
 |---|---|---|
-| `No mode configured` | Missing config | Add `apiUrl` and `apiToken` (or `userToken`) to plugin config |
-| `Server mode requires...` | Missing token | Add `apiToken` or `userToken` to config |
+| `No mode configured` | Missing config | Add `apiUrl` and `tenantID` (or legacy `apiToken`/`userToken`) to plugin config |
+| `Server mode requires...` | Missing tenant ID | Add `tenantID` (or legacy `apiToken`/`userToken`) to config |
 | Plugin not loading | Not in memory slot | Set `"slots": {"memory": "mnemo"}` in openclaw.json |

@@ -11,7 +11,7 @@ You are a memory storage agent for the mnemo shared memory system. Your job is t
 
 Mnemo uses server mode (mnemo-server):
 - `MNEMO_API_URL` — the server base URL
-- `MNEMO_API_TOKEN` — the authentication token
+- `MNEMO_TENANT_ID` — the tenant ID (UUID) for this workspace
 
 ## Steps
 
@@ -32,12 +32,10 @@ mnemo_post_memory '{"content":"THE MEMORY CONTENT HERE","tags":["tag1","tag2"],"
 If common.sh isn't available, use direct curl:
 
 ```bash
-# Server mode (mnemo-server REST API):
 curl -sf --max-time 8 \
-  -H "Authorization: Bearer ${MNEMO_API_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"content":"THE MEMORY CONTENT","tags":["tag1","tag2"],"source":"claude-code"}' \
-  "${MNEMO_API_URL}/api/memories"
+  "${MNEMO_API_URL}/v1alpha1/mem9s/${MNEMO_TENANT_ID}/memories"
 ```
 
 4. **Confirm**: Tell the user what was saved. Be specific about the content stored.

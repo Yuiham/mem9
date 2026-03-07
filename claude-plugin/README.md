@@ -8,20 +8,26 @@ Persistent memory for Claude Code — auto-loads memories on session start, auto
 
 **Connect to a running mnemo-server instance.**
 
+First, provision a tenant and capture the returned `id`:
+
 ```bash
-# 1. Add to ~/.claude/settings.json
+# 1. Provision a tenant (no auth headers)
+curl -s -X POST http://localhost:8080/v1alpha1/mem9s
+# → { "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "claim_url": "..." }
+
+# 2. Add to ~/.claude/settings.json
 cat << EOF
 Add this to your ~/.claude/settings.json:
 
 {
   "env": {
     "MNEMO_API_URL": "http://your-server:8080",
-    "MNEMO_API_TOKEN": "mnemo_your_token_here"
+    "MNEMO_TENANT_ID": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
   }
 }
 EOF
 
-# 2. Install plugin via marketplace
+# 3. Install plugin via marketplace
 # In Claude Code, run:
 #   /plugin marketplace add qiffang/mnemos
 #   /plugin install mnemo-memory@mnemos
@@ -39,6 +45,12 @@ Session Start → Load recent memories into context
 User Prompt  → Hint: memory-store / memory-recall available
      ↓
 Session Stop → Capture last response → save to database
+```
+
+All memory calls are routed by tenant ID in the URL path:
+
+```
+/v1alpha1/mem9s/{tenantID}/memories/...
 ```
 
 Three lifecycle hooks + two skills:
@@ -78,15 +90,15 @@ In Claude Code, run:
 
 Claude Code will prompt you to approve the hooks. Accept to enable automatic memory capture.
 
-#### Step 3: Configure credentials
+#### Step 3: Configure tenant ID
 
-Add your server credentials to `~/.claude/settings.json`:
+Add your tenant ID to `~/.claude/settings.json`:
 
 ```json
 {
   "env": {
     "MNEMO_API_URL": "http://your-server:8080",
-    "MNEMO_API_TOKEN": "mnemo_your_token_here"
+    "MNEMO_TENANT_ID": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
   }
 }
 ```
@@ -137,7 +149,7 @@ Add the `env` and `hooks` sections (merge with existing config):
 {
   "env": {
     "MNEMO_API_URL": "http://your-server:8080",
-    "MNEMO_API_TOKEN": "mnemo_your_token_here"
+    "MNEMO_TENANT_ID": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
   },
   "hooks": {
     "SessionStart": [
@@ -219,5 +231,5 @@ claude-plugin/
 |---|---|---|
 | Claude hangs on startup | Hook script path wrong or not executable | Check paths in `settings.json`, run `chmod +x` on hook scripts |
 | Memories not saving | Stop hook only fires on normal session end | Use `/memory-store` for on-demand saves |
-| Plugin not loading after marketplace install | Credentials not configured | Add `env` block to `~/.claude/settings.json` with API credentials |
+| Plugin not loading after marketplace install | Tenant ID not configured | Add `env` block to `~/.claude/settings.json` with `MNEMO_TENANT_ID` |
 | Hook approval prompt | Normal for marketplace plugins | Accept the hook permissions when prompted |

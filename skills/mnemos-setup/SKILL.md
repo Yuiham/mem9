@@ -22,16 +22,14 @@ cd mnemos/server
 MNEMO_DSN="user:pass@tcp(host:4000)/mnemos?parseTime=true" go run ./cmd/mnemo-server
 ```
 
-## Step 2: Register a tenant and get credentials
+## Step 2: Provision a tenant
 
 ```bash
-curl -s -X POST http://localhost:8080/api/tenants/register \
-  -H "Content-Type: application/json" \
-  -d '{"name":"my-tenant","agent_name":"agent-1","agent_type":"openclaw"}' | jq .
-# → {"ok":true, "tenant_id":"...", "token":"mnemo_abc123", ...}
+curl -s -X POST http://localhost:8080/v1alpha1/mem9s | jq .
+# → { "id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", "claim_url": "..." }
 ```
 
-Save the returned `token` — you'll need it for plugin config.
+Save the returned `id` — this is your tenant ID used in all subsequent API calls.
 
 ## Step 3: Configure your agent platform
 
@@ -52,7 +50,7 @@ Add to `openclaw.json`:
         "enabled": true,
         "config": {
           "apiUrl": "http://localhost:8080",
-          "userToken": "mnemo_abc123"
+          "tenantID": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
         }
       }
     }
@@ -62,7 +60,7 @@ Add to `openclaw.json`:
 
 Restart OpenClaw. You should see:
 ```
-[mnemo] Server mode (workspace isolation)
+[mnemo] Server mode (tenant-scoped mem9 API)
 ```
 
 ---
@@ -73,7 +71,7 @@ Set environment variables (add to shell profile or `.env`):
 
 ```bash
 export MNEMO_API_URL="http://localhost:8080"
-export MNEMO_API_TOKEN="mnemo_abc123"
+export MNEMO_TENANT_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 ```
 
 Add to `opencode.json`:
@@ -98,7 +96,7 @@ Add to `~/.claude/settings.json`:
 {
   "env": {
     "MNEMO_API_URL": "http://localhost:8080",
-    "MNEMO_API_TOKEN": "mnemo_abc123"
+    "MNEMO_TENANT_ID": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
   }
 }
 ```
@@ -130,5 +128,5 @@ The agent should recall the information from memory.
 | Problem | Fix |
 |---------|-----|
 | `No MNEMO_API_URL configured` | Set `MNEMO_API_URL` env var or `apiUrl` in plugin config |
-| `Server mode requires MNEMO_API_TOKEN` | Set `MNEMO_API_TOKEN` env var or `userToken` in plugin config |
+| `MNEMO_TENANT_ID is not set` | Set `MNEMO_TENANT_ID` env var or `tenantID` in plugin config |
 | Plugin not loading | Check platform-specific config format |

@@ -5,14 +5,21 @@ Persistent memory for [OpenCode](https://opencode.ai) — injects memories into 
 ## 🚀 Quick Start (server mode)
 
 ```bash
-# 1. Set your mnemo-server connection
-export MNEMO_API_URL="http://your-server:8080"
-export MNEMO_API_TOKEN="mnemo_your_token_here"
+# 1. Provision a tenant
+curl -s -X POST http://your-server:8080/v1alpha1/mem9s \
+  -H "Content-Type: application/json" \
+  -d '{}' \
+  | jq .
+# → { "id": "uuid", "claim_url": "..." }
 
-# 2. Add plugin to opencode.json
+# 2. Set your mnemo-server connection
+export MNEMO_API_URL="http://your-server:8080"
+export MNEMO_TENANT_ID="uuid"
+
+# 3. Add plugin to opencode.json
 echo '{"plugin": ["mnemo-opencode"]}' > opencode.json
 
-# 3. Start OpenCode - plugin auto-installs from npm
+# 4. Start OpenCode - plugin auto-installs from npm
 opencode
 ```
 
@@ -80,11 +87,12 @@ Then register in `opencode.json`:
 
 ### Set environment variables
 
-Connect to a self-hosted mnemo-server. Supports multi-agent collaboration with space isolation.
+Connect to a self-hosted mnemo-server. Tenant routing uses the tenant ID in the URL path.
+All subsequent API calls go to `/v1alpha1/mem9s/{tenantID}/memories/...` and require no headers.
 
 ```bash
 export MNEMO_API_URL="http://your-server:8080"
-export MNEMO_API_TOKEN="mnemo_your_token_here"
+export MNEMO_TENANT_ID="uuid"
 ```
 
 ### Verify
@@ -102,7 +110,8 @@ If you see `[mnemo] No mode configured...`, check your env vars.
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `MNEMO_API_URL` | Yes | — | mnemo-server base URL |
-| `MNEMO_API_TOKEN` | Yes | — | API token for server mode |
+| `MNEMO_TENANT_ID` | Yes (preferred) | — | Tenant ID for URL routing (`/v1alpha1/mem9s/{tenantID}/memories/...`) |
+| `MNEMO_API_TOKEN` | No (legacy fallback) | — | Legacy fallback if tenant ID is not set |
 
 ## File Structure
 
@@ -125,5 +134,5 @@ opencode-plugin/
 | Problem | Cause | Fix |
 |---|---|---|
 | `No mode configured` | Missing env vars | Set `MNEMO_API_URL` |
-| `Server mode requires...` | Missing API token | Set `MNEMO_API_TOKEN` |
+| `Server mode requires...` | Missing tenant ID or legacy token | Set `MNEMO_TENANT_ID` (preferred) or `MNEMO_API_TOKEN` |
 | Plugin not loading | Not registered in OpenCode config | Add to `opencode.json` plugins section |

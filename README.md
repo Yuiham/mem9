@@ -36,17 +36,15 @@ cd server && MNEMO_DSN="user:pass@tcp(host:4000)/mnemos?parseTime=true" go run .
 | **OpenClaw** | Add `mnemo` to `openclaw.json` plugins (see [openclaw-plugin/README](openclaw-plugin/README.md)) |
 
 ```bash
-# 3. Create a space and set credentials
-curl -s -X POST localhost:8080/api/spaces \
-  -H "Content-Type: application/json" \
-  -d '{"name":"backend-team","agent_name":"alice-claude","agent_type":"claude_code"}'
-# → {"ok":true, "space_id":"...", "api_token":"mnemo_abc"}
+# 3. Provision a tenant and set credentials
+curl -s -X POST localhost:8080/v1alpha1/mem9s
+# → {"id":"...", "claim_url":"..."}
 
 export MNEMO_API_URL="http://localhost:8080"
-export MNEMO_API_TOKEN="mnemo_abc"
+export MNEMO_TENANT_ID="..."
 ```
 
-Each agent uses its own token. All agents in the same space share one memory pool.
+All agents pointing at the same tenant ID share one memory pool.
 
 ---
 
@@ -89,7 +87,7 @@ mnemos provides native plugins for major AI coding agent platforms:
 
 All plugins expose the same 5 tools: `memory_store`, `memory_search`, `memory_get`, `memory_update`, `memory_delete`.
 
-> **🤖 For AI Agents**: Use the Quick Start above to deploy mnemo-server and generate a token, then follow the platform-specific README for configuration details.
+> **🤖 For AI Agents**: Use the Quick Start above to deploy mnemo-server and provision a tenant ID, then follow the platform-specific README for configuration details.
 
 ## Stateless Agents, Cloud Memory
 
@@ -98,23 +96,24 @@ A key design principle: **agent plugins carry zero state.** All memory lives in 
 - **Agent plugins stay stateless** — deploy any number of agent instances freely; they all share the same memory pool via mnemo-server
 - **Switch machines freely** — your agent's memory follows you, not your laptop
 - **Multi-agent collaboration** — Claude Code, OpenCode, OpenClaw, and any HTTP client share memories when pointed at the same server
-- **Centralized control** — authentication, rate limits, and audit live in one place
+- **Centralized control** — rate limits and audit live in one place
 
 ## API Reference
 
-Auth: `Authorization: Bearer <token>`. Server resolves token → space + agent.
+Agent identity: `X-Mnemo-Agent-Id` header.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/memories` | Create/upsert. Server generates embedding if configured. |
-| `GET` | `/api/memories` | Search: `?q=`, `?tags=`, `?source=`, `?key=`, `?limit=`, `?offset=` |
-| `GET` | `/api/memories/:id` | Get single memory |
-| `PUT` | `/api/memories/:id` | Update. Optional `If-Match` for version check. |
-| `DELETE` | `/api/memories/:id` | Delete |
-| `POST` | `/api/memories/bulk` | Bulk create (max 100) |
-| `POST` | `/api/spaces` | Create space + first token (no auth) |
-| `POST` | `/api/spaces/:id/tokens` | Add agent to space |
-| `GET` | `/api/spaces/:id/info` | Space metadata |
+| `POST` | `/v1alpha1/mem9s` | Provision tenant (no auth). Returns `{ "id", "claim_url" }`. |
+| `POST` | `/v1alpha1/mem9s/{tenantID}/memories` | Create/upsert. Server generates embedding if configured. |
+| `GET` | `/v1alpha1/mem9s/{tenantID}/memories` | Search: `?q=`, `?tags=`, `?source=`, `?key=`, `?limit=`, `?offset=` |
+| `GET` | `/v1alpha1/mem9s/{tenantID}/memories/:id` | Get single memory |
+| `PUT` | `/v1alpha1/mem9s/{tenantID}/memories/:id` | Update. Optional `If-Match` for version check. |
+| `DELETE` | `/v1alpha1/mem9s/{tenantID}/memories/:id` | Delete |
+| `POST` | `/v1alpha1/mem9s/{tenantID}/memories/ingest` | Ingest content for embedding + storage |
+| `POST` | `/v1alpha1/mem9s/{tenantID}/memories/bulk` | Bulk create (max 100) |
+| `GET` | `/v1alpha1/mem9s/{tenantID}/memories/bootstrap` | Bootstrap memories for agent startup |
+| `GET` | `/v1alpha1/mem9s/{tenantID}/info` | Tenant metadata |
 
 ## Self-Hosting
 

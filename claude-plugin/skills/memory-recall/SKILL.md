@@ -11,7 +11,7 @@ You are a memory retrieval agent for the mnemo shared memory system. Your job is
 
 Mnemo uses server mode (mnemo-server):
 - `MNEMO_API_URL` — the server base URL
-- `MNEMO_API_TOKEN` — the authentication token
+- `MNEMO_TENANT_ID` — the tenant ID (UUID) for this workspace
 
 ## Steps
 
@@ -30,20 +30,17 @@ mnemo_search "KEYWORD" 10
 If common.sh isn't available, use direct curl:
 
 ```bash
-# Server mode (mnemo-server REST API):
-curl -sf -H "Authorization: Bearer $MNEMO_API_TOKEN" \
-  "$MNEMO_API_URL/api/memories?q=KEYWORD&limit=10"
+curl -sf \
+  "$MNEMO_API_URL/v1alpha1/mem9s/$MNEMO_TENANT_ID/memories?q=KEYWORD&limit=10"
 ```
 
 You can also filter by tags or source:
 ```bash
-# Filter by tags
-curl -sf -H "Authorization: Bearer $MNEMO_API_TOKEN" \
-  "$MNEMO_API_URL/api/memories?tags=tikv,performance&limit=10"
+curl -sf \
+  "$MNEMO_API_URL/v1alpha1/mem9s/$MNEMO_TENANT_ID/memories?tags=tikv,performance&limit=10"
 
-# Filter by source agent
-curl -sf -H "Authorization: Bearer $MNEMO_API_TOKEN" \
-  "$MNEMO_API_URL/api/memories?source=claude-code&limit=10"
+curl -sf \
+  "$MNEMO_API_URL/v1alpha1/mem9s/$MNEMO_TENANT_ID/memories?source=claude-code&limit=10"
 ```
 
 3. **Evaluate**: Read through the results. Skip memories that are:
