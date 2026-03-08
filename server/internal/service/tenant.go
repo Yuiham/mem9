@@ -49,12 +49,13 @@ func buildMemorySchema(autoModel string, autoDims int) string {
 }
 
 type TenantService struct {
-	tenants   repository.TenantRepo
-	zero      *tenant.ZeroClient
-	pool      *tenant.TenantPool
-	logger    *slog.Logger
-	autoModel string
-	autoDims  int
+	tenants    repository.TenantRepo
+	zero       *tenant.ZeroClient
+	pool       *tenant.TenantPool
+	logger     *slog.Logger
+	autoModel  string
+	autoDims   int
+	ftsEnabled bool
 }
 
 func NewTenantService(
@@ -64,14 +65,16 @@ func NewTenantService(
 	logger *slog.Logger,
 	autoModel string,
 	autoDims int,
+	ftsEnabled bool,
 ) *TenantService {
 	return &TenantService{
-		tenants:   tenants,
-		zero:      zero,
-		pool:      pool,
-		logger:    logger,
-		autoModel: autoModel,
-		autoDims:  autoDims,
+		tenants:    tenants,
+		zero:       zero,
+		pool:       pool,
+		logger:     logger,
+		autoModel:  autoModel,
+		autoDims:   autoDims,
+		ftsEnabled: ftsEnabled,
 	}
 }
 
@@ -182,6 +185,13 @@ func (s *TenantService) initSchema(ctx context.Context, t *domain.Tenant) error 
 			`ALTER TABLE memories ADD VECTOR INDEX idx_cosine ((VEC_COSINE_DISTANCE(embedding))) ADD_COLUMNAR_REPLICA_ON_DEMAND`)
 		if err != nil && !isIndexExistsError(err) {
 			return fmt.Errorf("init tenant schema: vector index: %w", err)
+		}
+	}
+	if s.ftsEnabled {
+		_, err := db.ExecContext(ctx,
+			`ALTER TABLE memories ADD FULLTEXT INDEX idx_fts_content (content) WITH PARSER MULTILINGUAL ADD_COLUMNAR_REPLICA_ON_DEMAND`)
+		if err != nil && !isIndexExistsError(err) {
+			return fmt.Errorf("init tenant schema: fulltext index: %w", err)
 		}
 	}
 	return nil

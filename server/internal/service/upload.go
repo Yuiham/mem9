@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -55,6 +56,7 @@ type UploadWorker struct {
 	mode         IngestMode
 	logger       *slog.Logger
 	pollInterval time.Duration
+	concurrency  int
 }
 
 // NewUploadWorker creates a new UploadWorker.
@@ -68,9 +70,13 @@ func NewUploadWorker(
 	ftsEnabled bool,
 	mode IngestMode,
 	logger *slog.Logger,
+	concurrency int,
 ) *UploadWorker {
 	if logger == nil {
 		logger = slog.Default()
+	}
+	if concurrency <= 0 {
+		concurrency = 5
 	}
 	return &UploadWorker{
 		tasks:        tasks,
@@ -83,6 +89,7 @@ func NewUploadWorker(
 		mode:         mode,
 		logger:       logger,
 		pollInterval: 5 * time.Second,
+		concurrency:  concurrency,
 	}
 }
 
@@ -111,7 +118,7 @@ func (w *UploadWorker) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			tasks, err := w.tasks.FetchPending(ctx, 5)
+			tasks, err := w.tasks.FetchPending(ctx, w.concurrency)
 			if err != nil {
 				logger.Error("fetch pending upload tasks failed", "err", err)
 				continue
@@ -120,11 +127,17 @@ func (w *UploadWorker) Run(ctx context.Context) error {
 				continue
 			}
 			logger.Info("processing upload tasks", "count", len(tasks))
+			var wg sync.WaitGroup
 			for _, task := range tasks {
-				if err := w.processTask(ctx, task); err != nil {
-					logger.Error("task processing error", "task_id", task.TaskID, "err", err)
-				}
+				wg.Add(1)
+				go func(t domain.UploadTask) {
+					defer wg.Done()
+					if err := w.processTask(ctx, t); err != nil {
+						logger.Error("task processing error", "task_id", t.TaskID, "err", err)
+					}
+				}(task)
 			}
+			wg.Wait()
 		}
 	}
 }

@@ -44,6 +44,10 @@ type Config struct {
 	// Defaults to false (safe for all TiDB Serverless / TiDB Zero tiers).
 	FTSEnabled bool
 
+	// WorkerConcurrency controls how many upload tasks are processed in parallel.
+	// Defaults to 5.
+	WorkerConcurrency int
+
 	// Upload directory for file storage.
 	// Files are stored at {UploadDir}/{tenantID}/{agentID}/{filename}.
 	UploadDir string
@@ -79,6 +83,7 @@ func Load() (*Config, error) {
 		TenantPoolTotalLimit:  envInt("MNEMO_TENANT_POOL_TOTAL_LIMIT", 200),
 		UploadDir:             envOr("MNEMO_UPLOAD_DIR", "./uploads"),
 		FTSEnabled:            envBool("MNEMO_FTS_ENABLED", false),
+		WorkerConcurrency:     envInt("MNEMO_WORKER_CONCURRENCY", 5),
 	}
 	// Validate ingest mode.
 	switch cfg.IngestMode {

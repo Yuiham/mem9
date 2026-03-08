@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-
 	"github.com/qiffang/mnemos/server/internal/domain"
 	"github.com/qiffang/mnemos/server/internal/service"
 )
@@ -48,11 +47,6 @@ func (s *Server) createMemory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if hasMessages {
-		if len(req.Tags) > 0 || len(req.Metadata) > 0 {
-			s.handleError(w, &domain.ValidationError{Field: "body", Message: "tags/metadata are not supported with messages ingest"})
-			return
-		}
-
 		messages := append([]service.IngestMessage(nil), req.Messages...)
 		ingestReq := service.IngestRequest{
 			Messages:  messages,
