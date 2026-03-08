@@ -339,7 +339,18 @@ const { hero, aria } = Astro.props;
     }
 
     .title {
-      max-width: 7.6ch;
+      font-size: clamp(2.75rem, 11vw, 3.35rem);
+      max-width: 100%;
+      text-wrap: balance;
+    }
+
+    .title-line {
+      white-space: normal;
+    }
+
+    .title-inline {
+      display: inline;
+      white-space: normal;
     }
 
     .cta-command {
@@ -358,6 +369,11 @@ const { hero, aria } = Astro.props;
   @media (max-width: 560px) {
     .hero {
       padding-top: 4.2rem;
+    }
+
+    .title {
+      font-size: clamp(2.4rem, 10.8vw, 3rem);
+      line-height: 1.04;
     }
 
     .eyebrow {
